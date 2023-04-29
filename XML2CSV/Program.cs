@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Xml;
 
 namespace XML2CSV
 {
@@ -6,41 +7,69 @@ namespace XML2CSV
     {
         static void Main(string[] args)
         {
-            // Set the path to the XML file
-            var fileNamePath = "yourPathToXMLFile";
+            string fileNamePath = "D://[PROJECT]//XML2CSV//XML2CSV//XML//TestData.xml";
+            string outputFile = "D://[PROJECT]//XML2CSV//XML2CSV//Output//TestData.csv";
 
-            // Create a new DataSet object
-            DataSet ds = new();
+            //Using XML exported from EXCEL
+            ConvertToCSV(fileNamePath, outputFile, true);
 
-            // Read the XML file into the DataSet
-            ds.ReadXml(fileNamePath);
-
-            // Convert the first table in the DataSet to CSV and write it to a file
-            ConvertToCSV(ds.Tables[0]);
+            //Using default XML 
+            ConvertToCSV(fileNamePath, outputFile, false);
         }
 
-        private static void ConvertToCSV(DataTable dataTable)
+        private static void ConvertToCSV(string fileNamePath, string outputFile, bool excelExported)
         {
-            // Set the path to the output CSV file
-            var outputFile = "yourPathToExportCSVFile";
-
-            // Create a new StreamWriter object to write to the output file
-            using (var writer = new StreamWriter(outputFile))
+            if (excelExported)
             {
-                // Write the header row
-                string[] headers = dataTable.Columns
-                    .Cast<DataColumn>()
-                    .Select(column => QuoteField(column.ColumnName))
-                    .ToArray();
-                writer.WriteLine(string.Join(",", headers));
+                // Load the Excel XML file
+                XmlDocument doc = new XmlDocument();
+                doc.Load(fileNamePath);
+                XmlNamespaceManager nsMgr = new XmlNamespaceManager(doc.NameTable);
+                nsMgr.AddNamespace("ss", "urn:schemas-microsoft-com:office:spreadsheet");
 
-                // Write the data rows
-                foreach (DataRow row in dataTable.Rows)
+                XmlNodeList rowNodes = doc.SelectNodes("//ss:Table/ss:Row", nsMgr);
+
+                // Set the path to the output CSV file
+                // Create a new StreamWriter object to write to the output file
+                using (var writer = new StreamWriter(outputFile))
                 {
-                    string[] fields = row.ItemArray
-                        .Select(field => QuoteField(field.ToString()))
+                    foreach (XmlNode row in rowNodes)
+                    {
+                        XmlNodeList cellNodes = row.ChildNodes;
+                        List<XmlNode> cellList = cellNodes.Cast<XmlNode>().ToList();
+
+                        string[] fields = cellList.Select(field => QuoteField(field.InnerText.ToString()))
+                            .ToArray();
+                        writer.WriteLine(string.Join(",", fields));
+                    }
+                }
+            }
+            else
+            {
+                // Create a new DataSet object
+                DataSet ds = new();
+
+                // Read the XML file into the DataSet
+                ds.ReadXml(fileNamePath);
+                DataTable dataTable = ds.Tables[0];
+                outputFile = "D://[PROJECT]//XML2CSV//XML2CSV//Output//TestData1.csv";
+                using (var writer = new StreamWriter(outputFile))
+                {
+                    // Write the header row
+                    string[] headers = dataTable.Columns
+                        .Cast<DataColumn>()
+                        .Select(column => QuoteField(column.ColumnName))
                         .ToArray();
-                    writer.WriteLine(string.Join(",", fields));
+                    writer.WriteLine(string.Join(",", headers));
+
+                    // Write the data rows
+                    foreach (DataRow row in dataTable.Rows)
+                    {
+                        string[] fields = row.ItemArray
+                            .Select(field => QuoteField(field.ToString()))
+                            .ToArray();
+                        writer.WriteLine(string.Join(",", fields));
+                    }
                 }
             }
         }
@@ -51,10 +80,10 @@ namespace XML2CSV
             // If the field is null or empty, return an empty string
             if (string.IsNullOrEmpty(field)) return string.Empty;
 
-            // If the field contains commas, enclose it in double quotes
-            if (field.Contains(','))
+            // If the field contains commas or newlines, enclose it in double quotes
+            if (field.Contains(',') || field.Contains('\r') || field.Contains('\n'))
             {
-                return $"\"{field}\"";
+                return $"\"{field.Replace("\"", "\"\"")}\"";
             }
 
             // Otherwise, return the original field value
