@@ -18,10 +18,10 @@ namespace XML2CSV
             ConvertToPDF(fileNamePath, outputFile);
 
             //Using XML exported from EXCEL
-            //ConvertToCSV(fileNamePath, outputFile, true);
+            ConvertToCSV(fileNamePath, outputFile, true);
 
             //Using default XML 
-            //ConvertToCSV(fileNamePath, outputFile, false);
+            ConvertToCSV(fileNamePath, outputFile, false);
 
         }
 
